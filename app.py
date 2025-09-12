@@ -1,114 +1,88 @@
 import streamlit as st
 import tensorflow as tf
+from tensorflow.keras.preprocessing import image
 import numpy as np
-from PIL import Image
-import base64
 
-# ======================================
-# Page Config
-# ======================================
+# ---------------------------
+# Page Config (for mobile too)
+# ---------------------------
 st.set_page_config(
     page_title="Document Forgery Detection",
-    page_icon="📑",
-    layout="centered",
-    initial_sidebar_state="expanded"
+    page_icon="📄",
+    layout="centered",  # centered view looks good on mobile
 )
 
-# ======================================
-# Load Model
-# ======================================
-MODEL_PATH = r"C:\Users\a\OneDrive\Desktop\document detection\document_forgery_resnet50.h5"
-model = tf.keras.models.load_model(MODEL_PATH)
-
-# Class names
-class_names = ["Forged", "Genuine"]
-
-# ======================================
-# Styling (Custom CSS)
-# ======================================
-st.markdown("""
+# ---------------------------
+# Custom CSS Styling
+# ---------------------------
+st.markdown(
+    """
     <style>
-    .reportview-container {
-        background: #f8f9fa;
-    }
     .title {
-        font-size: 32px;
+        font-size: 36px;
         font-weight: bold;
-        color: #2c3e50;
+        color: #2E86C1;
         text-align: center;
     }
-    .subtitle {
-        font-size: 18px;
-        text-align: center;
-        color: #34495e;
-    }
-    .prediction-box {
+    .prediction {
+        font-size: 24px;
+        font-weight: bold;
         padding: 15px;
         border-radius: 10px;
         text-align: center;
-        font-size: 20px;
-        margin-top: 20px;
+    }
+    .forged {
+        background-color: #FADBD8;
+        color: #C0392B;
+    }
+    .genuine {
+        background-color: #D5F5E3;
+        color: #1D8348;
     }
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-# ======================================
-# Preprocessing Function
-# ======================================
-def preprocess_image(img):
-    img = img.resize((224, 224))
-    img = np.array(img) / 255.0
-    img = np.expand_dims(img, axis=0)
-    return img
+# ---------------------------
+# Load Model
+# ---------------------------
+@st.cache_resource
+def load_model():
+    model = tf.keras.models.load_model("document_forgery_resnet50.h5")
+    return model
 
-# ======================================
-# Sidebar
-# ======================================
-st.sidebar.title("⚙️ Options")
-st.sidebar.info("Upload a bill/document image to check if it's **Genuine** or **Forged**.")
+model = load_model()
 
-# ======================================
-# Main Page
-# ======================================
-st.markdown('<div class="title">📑 Document Forgery Detection</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">AI-powered system to classify documents as Genuine or Forged</div>', unsafe_allow_html=True)
-st.write("")
+# ---------------------------
+# Prediction Function
+# ---------------------------
+def predict_img(img):
+    img = image.load_img(img, target_size=(224,224))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-uploaded_file = st.file_uploader("📂 Upload an image (JPG/PNG):", type=["jpg", "jpeg", "png"])
+    # Show progress
+    with st.spinner("🔍 Analyzing document..."):
+        prediction = model.predict(img_array)[0][0]
+
+    return prediction
+
+# ---------------------------
+# Streamlit UI
+# ---------------------------
+st.markdown('<div class="title">📄 Document Forgery Detection</div>', unsafe_allow_html=True)
+st.write("Upload a document image and our AI model will classify it as **Genuine** or **Forged**.")
+
+uploaded_file = st.file_uploader("📤 Upload a document image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
-    
-    # Show uploaded image
-    st.image(image, caption="Uploaded Document", use_column_width=True)
+    st.image(uploaded_file, caption="Uploaded Document", use_column_width=True)
 
-    # Predict
-    img_array = preprocess_image(image)
-    prediction = model.predict(img_array)[0][0]
+    if st.button("🔎 Detect Forgery"):
+        result = predict_img(uploaded_file)
 
-    if prediction > 0.5:
-        result = class_names[1]  # Genuine
-        color = "#2ecc71"  # Green
-        icon = "✅"
-    else:
-        result = class_names[0]  # Forged
-        color = "#e74c3c"  # Red
-        icon = "❌"
-
-    st.markdown(
-        f"""
-        <div class="prediction-box" style="background:{color}; color:white;">
-            {icon} Prediction: <b>{result}</b><br>
-            Confidence: {prediction:.2f}
-        </div>
-        """, unsafe_allow_html=True
-    )
-
-else:
-    st.info("⬆️ Please upload a document image to proceed.")
-
-# ======================================
-# Footer
-# ======================================
-st.markdown("---")
-st.markdown("💡 Built with **TensorFlow + Streamlit** | Powered by Deep Learning")
+        if result > 0.5:
+            st.markdown('<div class="prediction forged">❌ Forged Document</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="prediction genuine">✅ Genuine Document</div>', unsafe_allow_html=True)
