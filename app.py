@@ -1,90 +1,92 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
 import numpy as np
 from PIL import Image
 
-# ---------------------------
-# Page Config (for mobile too)
-# ---------------------------
-st.set_page_config(
-    page_title="Document Forgery Detection",
-    page_icon="📄",
-    layout="centered",  # centered view looks good on mobile
-)
+# Page config for better mobile view
+st.set_page_config(page_title="Document Forgery Detector", page_icon="📄", layout="centered")
 
-# ---------------------------
-# Custom CSS Styling
-# ---------------------------
-st.markdown(
-    """
-    <style>
-    .title {
-        font-size: 36px;
-        font-weight: bold;
-        color: #2E86C1;
-        text-align: center;
-    }
-    .prediction {
-        font-size: 24px;
-        font-weight: bold;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-    }
-    .forged {
-        background-color: #FADBD8;
-        color: #C0392B;
-    }
-    .genuine {
-        background-color: #D5F5E3;
-        color: #1D8348;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# ---------------------------
-# Load Model
-# ---------------------------
+# Load model once
 @st.cache_resource
 def load_model():
-    model = tf.keras.models.load_model("document_forgery_resnet50.h5")
-    return model
+    return tf.keras.models.load_model("document_forgery_resnet5050.h5")
 
 model = load_model()
 
-# ---------------------------
-# Prediction Function
-# ---------------------------
-def predict_img(img):
-    img = image.load_img(img, target_size=(224,224))
-    img_array = image.img_to_array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+# Custom CSS for colors and mobile-friendly design
+st.markdown("""
+    <style>
+    body {
+        background-color: #f7f9fc;
+    }
+    .stApp {
+        background: linear-gradient(135deg, #e3f2fd, #fce4ec);
+    }
+    h1 {
+        color: #2c3e50;
+        text-align: center;
+        font-size: 28px;
+    }
+    .stButton>button {
+        background-color: #1976d2;
+        color: white;
+        border-radius: 12px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+    .stButton>button:hover {
+        background-color: #1565c0;
+    }
+    .prediction-box {
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        font-size: 20px;
+        margin-top: 15px;
+    }
+    .success {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-    # Show progress
-    with st.spinner("🔍 Analyzing document..."):
-        prediction = model.predict(img_array)[0][0]
+# Title
+st.markdown("## 📄 Document Forgery Detection")
+st.write("Upload a **document or bill image** and check if it's **Real** or **Fake**.")
 
-    return prediction
-
-# ---------------------------
-# Streamlit UI
-# ---------------------------
-st.markdown('<div class="title">📄 Document Forgery Detection</div>', unsafe_allow_html=True)
-st.write("Upload a document image and our AI model will classify it as **Genuine** or **Forged**.")
-
-uploaded_file = st.file_uploader("📤 Upload a document image", type=["jpg", "png", "jpeg"])
+# File uploader
+uploaded_file = st.file_uploader("📂 Upload an image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    st.image(uploaded_file, caption="Uploaded Document", use_column_width=True)
+    # Open image
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="🖼 Uploaded Document", use_container_width=True)
 
-    if st.button("🔎 Detect Forgery"):
-        result = predict_img(uploaded_file)
+    # Preprocess image
+    img_size = (224, 224)  # match training
+    img = image.resize(img_size)
+    img_array = np.array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-        if result > 0.5:
-            st.markdown('<div class="prediction forged">❌ Forged Document</div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="prediction genuine">✅ Genuine Document</div>', unsafe_allow_html=True)
+    # Prediction
+    prediction = model.predict(img_array)[0][0]
+
+    # Show prediction with styled boxes
+    if prediction > 0.5:
+        st.markdown(
+            f"<div class='prediction-box success'>✅ Prediction: <b>Real Document</b><br>🔎 Confidence: {prediction:.2f}</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"<div class='prediction-box error'>❌ Prediction: <b>Fake / Forged Document</b><br>🔎 Confidence: {prediction:.2f}</div>",
+            unsafe_allow_html=True,
+        )
+
+else:
+    st.info("👆 Please upload a document image to start analysis.")
