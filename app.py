@@ -76,7 +76,8 @@ uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png"])
 if uploaded_file is not None:
     # Open image
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="🖼 Uploaded Document", use_container_width=True)
+    st.image(image, caption="🖼 Uploaded Document", use_column_width=True)
+
 
     # Preprocess image
     img_size = (224, 224)
